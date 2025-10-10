@@ -79,10 +79,11 @@ WSGI_APPLICATION = 'lms_project.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'mydatabase'),
-        'USER': os.getenv('POSTGRES_USER', 'user'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'password'),
+        'NAME': 'mydatabase',
+        'USER': 'user',
+        'PASSWORD': 'password',
         'HOST': 'db',
+        'PORT': '5432',
     }
 }
 
