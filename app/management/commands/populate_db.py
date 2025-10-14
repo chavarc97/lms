@@ -1,5 +1,3 @@
-# Guardar en: courses_api/management/commands/populate_db.py
-
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from app.models import (
@@ -30,13 +28,16 @@ class Command(BaseCommand):
         
         categories = {}
         for cat_data in categories_data:
-            category, created = Course_Category.objects.get_or_create(
+            cat, created = Course_Category.objects.get_or_create(
                 name=cat_data['name'],
-                defaults=cat_data
+                defaults={
+                    'description': cat_data['description'],
+                    'icon': cat_data['icon']
+                }
             )
-            categories[cat_data['name']] = category
+            categories[cat_data['name']] = cat
             if created:
-                self.stdout.write(f'  ✓ Categoría creada: {category.name}')
+                self.stdout.write(f'  ✓ Categoría creada: {cat.name}')
         
         # Niveles de dificultad
         levels_data = [
@@ -49,7 +50,10 @@ class Command(BaseCommand):
         for level_data in levels_data:
             level, created = DifficultyLevel.objects.get_or_create(
                 level_name=level_data['level_name'],
-                defaults=level_data
+                defaults={
+                    'level_order': level_data['level_order'],
+                    'description': level_data['description']
+                }
             )
             levels[level_data['level_name']] = level
             if created:
@@ -64,13 +68,13 @@ class Command(BaseCommand):
         
         course_statuses = {}
         for status_data in course_statuses_data:
-            course_status, created = CourseStatus.objects.get_or_create(
+            status, created = CourseStatus.objects.get_or_create(
                 status_name=status_data['status_name'],
-                defaults=status_data
+                defaults={'description': status_data['description']}
             )
-            course_statuses[status_data['status_name']] = course_status
+            course_statuses[status_data['status_name']] = status
             if created:
-                self.stdout.write(f'  ✓ Estado de curso creado: {course_status.status_name}')
+                self.stdout.write(f'  ✓ Estado de curso creado: {status.status_name}')
         
         # Tipos de lección
         lesson_types_data = [
@@ -82,13 +86,16 @@ class Command(BaseCommand):
         
         lesson_types = {}
         for lt_data in lesson_types_data:
-            lesson_type, created = LessonType.objects.get_or_create(
+            lt, created = LessonType.objects.get_or_create(
                 type_name=lt_data['type_name'],
-                defaults=lt_data
+                defaults={
+                    'icon': lt_data['icon'],
+                    'description': lt_data['description']
+                }
             )
-            lesson_types[lt_data['type_name']] = lesson_type
+            lesson_types[lt_data['type_name']] = lt
             if created:
-                self.stdout.write(f'  ✓ Tipo de lección creado: {lesson_type.type_name}')
+                self.stdout.write(f'  ✓ Tipo de lección creado: {lt.type_name}')
         
         # Estados de inscripción
         enrollment_statuses_data = [
@@ -99,13 +106,13 @@ class Command(BaseCommand):
         
         enrollment_statuses = {}
         for es_data in enrollment_statuses_data:
-            enr_status, created = EnrollmentStatus.objects.get_or_create(
+            es, created = EnrollmentStatus.objects.get_or_create(
                 status_name=es_data['status_name'],
-                defaults=es_data
+                defaults={'description': es_data['description']}
             )
-            enrollment_statuses[es_data['status_name']] = enr_status
+            enrollment_statuses[es_data['status_name']] = es
             if created:
-                self.stdout.write(f'  ✓ Estado de inscripción creado: {enr_status.status_name}')
+                self.stdout.write(f'  ✓ Estado de inscripción creado: {es.status_name}')
         
         # ==================== CREAR USUARIOS ====================
         
@@ -152,15 +159,13 @@ class Command(BaseCommand):
         
         users = {}
         for user_data in users_data:
-            is_instructor = user_data.pop('is_instructor')
-            bio = user_data.pop('bio')
-            
+            # Crear usuario
             user, created = User.objects.get_or_create(
                 username=user_data['username'],
                 defaults={
                     'email': user_data['email'],
                     'first_name': user_data['first_name'],
-                    'last_name': user_data['last_name']
+                    'last_name': user_data['last_name'],
                 }
             )
             
@@ -172,8 +177,16 @@ class Command(BaseCommand):
             # Crear o actualizar perfil
             profile, created = Profile.objects.get_or_create(
                 user=user,
-                defaults={'is_instructor': is_instructor, 'bio': bio}
+                defaults={
+                    'bio': user_data['bio'],
+                    'is_instructor': user_data['is_instructor']
+                }
             )
+            
+            if not created:
+                profile.bio = user_data['bio']
+                profile.is_instructor = user_data['is_instructor']
+                profile.save()
             
             users[user_data['username']] = user
         
@@ -325,26 +338,24 @@ class Command(BaseCommand):
         
         courses = []
         for course_data in courses_data:
-            lessons_data = course_data.pop('lessons')
-            
+            # Crear curso
+            lessons = course_data.pop('lessons')
             course, created = Course.objects.get_or_create(
                 title=course_data['title'],
                 defaults=course_data
             )
+            courses.append(course)
             
             if created:
                 self.stdout.write(f'  ✓ Curso creado: {course.title}')
-            courses.append(course)
-            
-            # Crear lecciones
-            for lesson_data in lessons_data:
-                lesson, created = Lesson.objects.get_or_create(
-                    course=course,
-                    title=lesson_data['title'],
-                    defaults=lesson_data
-                )
-                if created:
-                    self.stdout.write(f'    ↳ Lección creada: {lesson.title}')
+                
+                # Crear lecciones
+                for lesson_data in lessons:
+                    lesson = Lesson.objects.create(
+                        course=course,
+                        **lesson_data
+                    )
+                    self.stdout.write(f'    ✓ Lección creada: {lesson.title}')
         
         # ==================== CREAR INSCRIPCIONES ====================
         
@@ -353,68 +364,61 @@ class Command(BaseCommand):
         enrollments_data = [
             {
                 'user': users['student1'],
-                'course': courses[0],  # Python para Principiantes
+                'course': courses[0],
                 'status': enrollment_statuses['Active'],
                 'progress_percentage': 60.00
             },
             {
                 'user': users['student1'],
-                'course': courses[2],  # Marketing Digital
+                'course': courses[2],
                 'status': enrollment_statuses['Completed'],
                 'progress_percentage': 100.00,
                 'completed_at': timezone.now()
             },
             {
                 'user': users['student2'],
-                'course': courses[0],  # Python para Principiantes
+                'course': courses[0],
                 'status': enrollment_statuses['Active'],
                 'progress_percentage': 30.00
             },
             {
                 'user': users['student2'],
-                'course': courses[1],  # Django REST Framework
+                'course': courses[1],
                 'status': enrollment_statuses['Active'],
                 'progress_percentage': 15.00
             },
         ]
         
         for enr_data in enrollments_data:
-            completed_at = enr_data.pop('completed_at', None)
-            
+            # Crear inscripción
             enrollment, created = Enrollment.objects.get_or_create(
                 user=enr_data['user'],
                 course=enr_data['course'],
-                defaults=enr_data
+                defaults={
+                    'status': enr_data['status'],
+                    'progress_percentage': enr_data['progress_percentage'],
+                    'completed_at': enr_data.get('completed_at')
+                }
             )
             
             if created:
-                if completed_at:
-                    enrollment.completed_at = completed_at
-                    enrollment.save()
-                
-                self.stdout.write(f'  ✓ Inscripción creada: {enrollment}')
+                self.stdout.write(f'  ✓ Inscripción creada: {enrollment.user.username} en {enrollment.course.title}')
                 
                 # Crear progreso de lecciones
                 lessons = enrollment.course.lessons.all()
-                for i, lesson in enumerate(lessons, 1):
-                    # Marcar algunas lecciones como completadas según el progreso
-                    total_lessons = lessons.count()
-                    completed_lessons = int(total_lessons * (enrollment.progress_percentage / 100))
-                    
-                    is_completed = i <= completed_lessons
-                    
-                    progress, created = LessonProgress.objects.get_or_create(
+                lessons_completed = int(len(lessons) * (enrollment.progress_percentage / 100))
+                
+                for i, lesson in enumerate(lessons):
+                    is_completed = i < lessons_completed
+                    progress = LessonProgress.objects.create(
                         enrollment=enrollment,
                         lesson=lesson,
-                        defaults={
-                            'is_completed': is_completed,
-                            'time_spent_minutes': lesson.duration_minutes if is_completed else 0,
-                            'completed_at': timezone.now() if is_completed else None
-                        }
+                        is_completed=is_completed,
+                        time_spent_minutes=lesson.duration_minutes if is_completed else 0,
+                        completed_at=timezone.now() if is_completed else None
                     )
-                    
-                    if created and is_completed:
-                        self.stdout.write(f'    ↳ Progreso de lección: {lesson.title} (completada)')
+                    if is_completed:
+                        self.stdout.write(f'    ✓ Progreso creado: {progress.lesson.title} (Completado)')
         
         # ==================== CREAR COMENTARIOS ====================
         
@@ -469,8 +473,7 @@ class Command(BaseCommand):
                 }
             )
             if created:
-                tipo = 'Reseña' if comment.is_review else 'Comentario'
-                self.stdout.write(f'  ✓ {tipo} creado: {comment.user.username} en {comment.course.title}')
+                self.stdout.write(f'  ✓ Comentario creado: {comment.user.username} en {comment.course.title}')
         
         # ==================== RESUMEN FINAL ====================
         
