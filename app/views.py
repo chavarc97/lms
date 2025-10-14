@@ -6,6 +6,7 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.shortcuts import render
 
 from .models import (
     Profile, Course_Category, DifficultyLevel, CourseStatus,
@@ -22,6 +23,9 @@ from .serializers import (
     CommentSerializer, CommentListSerializer
 )
 
+# =================== HOME ===================
+def index(request):
+    return render(request, 'index.html')
 
 # ==================== USER & PROFILE ====================
 

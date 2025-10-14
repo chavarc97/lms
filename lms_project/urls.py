@@ -19,6 +19,7 @@ from django.urls import path, include, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+import app.views
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -36,8 +37,8 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path('', include('app.urls')),
-    path('api/', include('app.urls')),
+    path('', app.views.index, name='index'),
+    path('api/lms/', include('app.urls')),
     path('admin/', admin.site.urls),
     
      # DRF browsable API login
