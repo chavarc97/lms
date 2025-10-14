@@ -12,3 +12,4 @@ psycopg2-binary==2.9.10
 Pygments==2.19.2
 pytest==8.4.2
 sqlparse==0.5.3
+django-cors-headers==4.3.1
